@@ -1,0 +1,48 @@
+name: Build RenderDoc (Windows)
+
+on:
+  workflow_dispatch:  # 手动触发，在 GitHub Actions 页面点按钮就行
+
+jobs:
+  build:
+    name: Windows ${{ matrix.configuration }} ${{ matrix.platform }}
+    runs-on: windows-2025
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - toolset: v143
+            platform: x64
+            configuration: Development
+
+    steps:
+    - uses: actions/checkout@v6
+      with:
+        fetch-depth: 1
+
+    - name: Set up MSBuild
+      uses: microsoft/setup-msbuild@v3
+
+    - name: Download 3rdparty extras
+      run: |
+        curl -LO https://renderdoc.org/qrenderdoc_3rdparty.zip
+        7z x qrenderdoc_3rdparty.zip -aoa
+
+    - name: Build full solution
+      run: |
+        msbuild.exe renderdoc.sln /m `
+          "/p:Configuration=${{ matrix.configuration }}" `
+          "/p:Platform=${{ matrix.platform }}" `
+          "/p:PlatformToolset=${{ matrix.toolset }}"
+      shell: powershell
+
+    - name: Upload full build artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: renderdoc-win64-${{ matrix.configuration }}
+        path: |
+          ${{ matrix.platform }}\${{ matrix.configuration }}\*.exe
+          ${{ matrix.platform }}\${{ matrix.configuration }}\*.dll
+          ${{ matrix.platform }}\${{ matrix.configuration }}\*.pyd
+          ${{ matrix.platform }}\${{ matrix.configuration }}\pymodules\*
+        if-no-files-found: error
